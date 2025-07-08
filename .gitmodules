@@ -1,0 +1,12 @@
+[submodule "llvm"]
+	path = llvm
+	url = git@github.com:OpenXeChain/llvm.git
+[submodule "newlib"]
+	path = newlib
+	url = git@github.com:OpenXeChain/newlib.git
+[submodule "xecorelib"]
+	path = xecorelib
+	url = git@github.com:OpenXeChain/xecorelib.git
+[submodule "synthxex"]
+	path = synthxex
+	url = git@github.com:OpenXeChain/synthxex.git
