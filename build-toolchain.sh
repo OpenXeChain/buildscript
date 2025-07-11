@@ -71,7 +71,7 @@ cmake -DCMAKE_C_COMPILER="${HOST_CC}" \
       -DCMAKE_CXX_COMPILER="${HOST_CXX}" \
       -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
       -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-      -DLLVM_ENABLE_PROJECTS="lld;clang;compiler-rt" \
+      -DLLVM_ENABLE_PROJECTS="lld;clang" \
       -DLLVM_TARGETS_TO_BUILD=PowerPC \
       -DLLVM_DEFAULT_TARGET_TRIPLE="${LLVM_TARGET}" \
       -DLLVM_INSTALL_BINUTILS_SYMLINKS=true \
@@ -89,16 +89,6 @@ ninja install >> "${BUILD_LOG}" 2>&1 || fail_build
 echo -e "${TOOLCHAIN_STEM}Cross compiler built and installed!"
 rm -rf * # Clear the build directory, ready for xecorelib
 
-# Clear the environment variables the C/C++ compiler is sensitive to,
-# to avoid pollution.
-# We restore them later.
-OLD_LIBRARY_PATH="${LIBRARY_PATH}"
-OLD_C_INCLUDE_PATH="${C_INCLUDE_PATH}"
-OLD_CPLUS_INCLUDE_PATH="${CPLUS_INCLUDE_PATH}"
-export LIBRARY_PATH=""
-export C_INCLUDE_PATH=""
-export CPLUS_INCLUDE_PATH=""
-
 # Define the default command line flags to be used by the cross-compiler.
 # Linkage to Newlib/xecorelib is also added to these files, but after it's been built and installed.
 echo -e "${TOOLCHAIN_STEM}Writing initial Clang configuration scripts."
@@ -114,6 +104,16 @@ cat > "${PREFIX}/bin/clang++.cfg" << EOF
 --rtlib=compiler-rt
 -fdeclspec
 EOF
+
+# Clear the environment variables the C/C++ compiler is sensitive to,
+# to avoid pollution.
+# We restore them later.
+OLD_LIBRARY_PATH="${LIBRARY_PATH}"
+OLD_C_INCLUDE_PATH="${C_INCLUDE_PATH}"
+OLD_CPLUS_INCLUDE_PATH="${CPLUS_INCLUDE_PATH}"
+export LIBRARY_PATH=""
+export C_INCLUDE_PATH=""
+export CPLUS_INCLUDE_PATH=""
 
 # Build xecorelib
 echo -e "${TOOLCHAIN_STEM}Building and installing xecorelib."
@@ -150,16 +150,11 @@ echo -e "${TOOLCHAIN_STEM}Configuring the Newlib C library... (this may take a w
     --enable-newlib-iconv >> "${BUILD_LOG}" 2>&1 || fail_build
 
 # Now build and install
-echo -e "${TOOLCHAIN_STEM}Building the Newlib C library... (this may take a while)"
+echo -e "${TOOLCHAIN_STEM}Building the Newlib C library..."
 make -j${PARALLEL} >> "${BUILD_LOG}" 2>&1 || fail_build
 
-echo -e "${TOOLCHAIN_STEM}Installing the Newlib C library... (this may take a while)"
+echo -e "${TOOLCHAIN_STEM}Installing the Newlib C library..."
 make install >> "${BUILD_LOG}" 2>&1 || fail_build
-
-# Restore the environment variables the C/C++ compiler is sensitive to
-export LIBRARY_PATH="${OLD_LIBRARY_PATH}"
-export C_INCLUDE_PATH="${OLD_C_INCLUDE_PATH}"
-export CPLUS_INCLUDE_PATH="${OLD_CPLUS_INCLUDE_PATH}"
 
 # Add Newlib/xecorelib linkage to the default compiler flags now that it is installed
 echo -e "${TOOLCHAIN_STEM}Adding Newlib linkage to Clang configuration scripts."
@@ -179,7 +174,63 @@ cat >> "${PREFIX}/bin/clang++.cfg" << EOF
 EOF
 
 echo -e "${TOOLCHAIN_STEM}Newlib C library built and installed!"
+rm -rf * # Clear the build directory, ready for compiler-rt
+
+# Configure compiler-rt
+# We need to override the compiler checks, otherwise CMake will attempt to
+# build test programs, which won't work, as it'll try to link compiler-rt,
+# which is not yet installed.
+echo -e "${TOOLCHAIN_STEM}Configuring compiler-rt..."
+cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
+      -DCMAKE_SYSTEM_NAME="Generic" \
+      -DCMAKE_CROSSCOMPILING=true \
+      -DCMAKE_C_COMPILER="${PREFIX}/bin/clang" \
+      -DCMAKE_CXX_COMPILER="${PREFIX}/bin/clang++" \
+      -DCMAKE_AR="${PREFIX}/bin/llvm-ar" \
+      -DCMAKE_LINKER="${PREFIX}/bin/lld-link" \
+      -DCMAKE_RANLIB="${PREFIX}/bin/llvm-ranlib" \
+      -DCMAKE_SYSROOT="${PREFIX}" \
+      -DCMAKE_C_COMPILER_WORKS=true \
+      -DCMAKE_CXX_COMPILER_WORKS=true \
+      -DCMAKE_C_COMPILER_TARGET="ppc32-xbox360" \
+      -DCOMPILER_RT_BUILD_BUILTINS=true \
+      -DCOMPILER_RT_DEFAULT_TARGET_ONLY=true \
+      -DCOMPILER_RT_BUILD_SANITIZERS=false \
+      -DCOMPILER_RT_BUILD_XRAY=false \
+      -DCOMPILER_RT_BUILD_LIBFUZZER=false \
+      -DCOMPILER_RT_BUILD_PROFILE=false \
+      -DCOMPILER_RT_STANDALONE_BUILD=true \
+      -DCOMPILER_RT_BUILTINS_ENABLE_PIC=false \
+      -DCOMPILER_RT_BAREMETAL_BUILD=true \
+      -G "Ninja" ../llvm/compiler-rt >> "${BUILD_LOG}" 2>&1 || fail_build
+
+# Now build and install
+echo -e "${TOOLCHAIN_STEM}Building compiler-rt..."
+ninja -j${PARALLEL} >> "${BUILD_LOG}" 2>&1 || fail_build
+
+echo -e "${TOOLCHAIN_STEM}Installing compiler-rt..."
+ninja install >> "${BUILD_LOG}" 2>&1 || fail_build
+
+# Add compiler-rt linkage to Clang config scripts
+echo -e "${TOOLCHAIN_STEM}Adding compiler-rt linkage to Clang configuration scripts."
+
+cat >> "${PREFIX}/bin/clang.cfg" << EOF
+-Wl,/libpath:<CFGDIR>/../lib/generic
+-Wl,/defaultlib:libclang_rt.builtins-powerpc.a
+EOF
+
+cat >> "${PREFIX}/bin/clang++.cfg" << EOF
+-Wl,/libpath:<CFGDIR>/../lib/generic
+-Wl,/defaultlib:libclang_rt.builtins-powerpc.a
+EOF
+
+echo -e "${TOOLCHAIN_STEM}Compiler-rt built and installed!"
 rm -rf * # Clear the build directory, ready for SynthXEX
+
+# Restore the environment variables the C/C++ compiler is sensitive to
+export LIBRARY_PATH="${OLD_LIBRARY_PATH}"
+export C_INCLUDE_PATH="${OLD_C_INCLUDE_PATH}"
+export CPLUS_INCLUDE_PATH="${OLD_CPLUS_INCLUDE_PATH}"
 
 # Build SynthXEX
 echo -e "${TOOLCHAIN_STEM}Getting ready to build SynthXEX."
@@ -212,4 +263,4 @@ echo -e "${TOOLCHAIN_STEM}${ANSI_GRN}interference from the host libraries.${ANSI
 
 cd ..
 rm -rf build
-#rm -f build.log
+rm -f build.log
