@@ -94,12 +94,14 @@ rm -rf * # Clear the build directory, ready for xecorelib
 echo -e "${TOOLCHAIN_STEM}Writing initial Clang configuration scripts."
 
 cat > "${PREFIX}/bin/clang.cfg" << EOF
+-Wno-main-return-type
 --sysroot=<CFGDIR>/..
 --rtlib=compiler-rt
 -fdeclspec
 EOF
 
 cat > "${PREFIX}/bin/clang++.cfg" << EOF
+-Wno-main-return-type
 --sysroot=<CFGDIR>/..
 --rtlib=compiler-rt
 -fdeclspec
