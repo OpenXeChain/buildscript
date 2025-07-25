@@ -78,9 +78,6 @@ check_deps()
     bash --version >> "${BUILD_LOG}" 2>&1 ||
         (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing bash!${ANSI_CLR}")
 
-    ar --version >> "${BUILD_LOG}" 2>&1 ||
-        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing binutils!${ANSI_CLR}")
-
     bzip2 --help >> "${BUILD_LOG}" 2>&1 ||
         (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing bzip2!${ANSI_CLR}")
 
