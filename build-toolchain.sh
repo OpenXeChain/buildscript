@@ -49,6 +49,90 @@ fail_build()
     exit 1
 }
 
+# Check to make sure all required dependencies are installed
+check_deps()
+{
+    MISSING_DEPS=0
+
+    clang --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing clang!${ANSI_CLR}")
+
+    ar --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing binutils!${ANSI_CLR}")
+
+    git --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing git!${ANSI_CLR}")
+
+    cmake --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing cmake!${ANSI_CLR}")
+
+    make --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing make!${ANSI_CLR}")
+
+    ninja --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing ninja!${ANSI_CLR}")
+
+    python3 --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing python3!${ANSI_CLR}")
+
+    bash --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing bash!${ANSI_CLR}")
+
+    ar --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing binutils!${ANSI_CLR}")
+
+    bzip2 --help >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing bzip2!${ANSI_CLR}")
+
+    gzip --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing gzip!${ANSI_CLR}")
+
+    grep --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing grep!${ANSI_CLR}")
+
+    xargs --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing findutils!${ANSI_CLR}")
+
+    sed --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing sed!${ANSI_CLR}")
+
+    tar --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing tar!${ANSI_CLR}")
+
+    unzip --help >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing unzip!${ANSI_CLR}")
+
+    zip --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing zip!${ANSI_CLR}")
+
+    gawk --version >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing gawk!${ANSI_CLR}")
+
+    # Zlib cannot be checked like this as it has no binaries, but it should have been installed
+    # as a dependency of python3
+
+    # Check for pyyaml with a simple python script
+    cat > "test-pyyaml-openxechain.py" << EOF
+import importlib.util
+pyyaml_test=importlib.util.find_spec('yaml')
+if pyyaml_test is None:
+        exit(1)
+else:
+        exit(0)
+EOF
+
+    python3 test-pyyaml-openxechain.py >> "${BUILD_LOG}" 2>&1 ||
+        (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing python-pyyaml!${ANSI_CLR}")
+
+    rm -f test-pyyaml-openxechain.py
+
+    if [[ ${MISSING_DEPS} -ne 0 ]]; then
+        echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Dependencies are missing! Please install them.${ANSI_CLR}"
+    fi
+
+    return ${MISSING_DEPS}
+}
+
 cd "$(dirname $0)" || fail_build
 
 if [[ ! -d "newlib" || ! -d "llvm" || ! -d "synthxex" || ! -d "xecorelib" ]]; then
@@ -60,10 +144,11 @@ fi
 echo -e "${TOOLCHAIN_STEM}Creating sysroot directory \"${PREFIX}\"."
 mkdir -pv "${PREFIX}" >> "${BUILD_LOG}" 2>&1 || fail_build
 
-# Build the LLVM cross compiler
-echo -e "${TOOLCHAIN_STEM}Getting ready to build the cross compiler."
+# Make sure all required dependencies are installed
+echo -e "${TOOLCHAIN_STEM}Checking if required dependencies are installed."
 mkdir -pv "build" >> "${BUILD_LOG}" 2>&1 || fail_build
 cd "build" || fail_build
+check_deps || fail_build
 
 # Configure it first
 echo -e "${TOOLCHAIN_STEM}Configuring the cross compiler... (this may take a while)"
