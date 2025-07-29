@@ -99,7 +99,7 @@ check_deps()
     unzip --help >> "${BUILD_LOG}" 2>&1 ||
         (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing unzip!${ANSI_CLR}")
 
-    zip --version >> "${BUILD_LOG}" 2>&1 ||
+    zip -v >> "${BUILD_LOG}" 2>&1 ||
         (MISSING_DEPS=1 && echo -e "${TOOLCHAIN_STEM}${ANSI_RED}Missing zip!${ANSI_CLR}")
 
     gawk --version >> "${BUILD_LOG}" 2>&1 ||
