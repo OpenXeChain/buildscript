@@ -180,6 +180,7 @@ cat > "${PREFIX}/bin/clang.cfg" << EOF
 --sysroot=<CFGDIR>/..
 --rtlib=compiler-rt
 -fdeclspec
+-mlongcall
 EOF
 
 cat > "${PREFIX}/bin/clang++.cfg" << EOF
@@ -187,6 +188,7 @@ cat > "${PREFIX}/bin/clang++.cfg" << EOF
 --sysroot=<CFGDIR>/..
 --rtlib=compiler-rt
 -fdeclspec
+-mlongcall
 EOF
 
 # Clear the environment variables the C/C++ compiler is sensitive to,
